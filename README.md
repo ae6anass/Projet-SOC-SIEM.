@@ -60,7 +60,9 @@ Le laboratoire a été entièrement virtualisé au sein d'un hyperviseur de type
 ### 3.2 Diagramme Réseau Logique
 Le diagramme suivant détaille les flux d'attaque et de télémétrie établis entre l'attaquant, la cible et le serveur de sécurité :
 
-![Architecture du Laboratoire Virtuel SIEM/SOAR](./images/image1.png)
+<img width="552" height="390" alt="image" src="https://github.com/user-attachments/assets/20e1a831-f0c7-49fd-8595-a5090cf95895" />
+
+
 *Figure 1 : Topologie réseau du laboratoire isolé sous KVM/QEMU.*
 
 ---
@@ -75,6 +77,7 @@ Depuis la machine hôte attaquante (`192.168.100.1`), un scan de ports agressif 
 ```bash
 ae6@thinkpad:~$ sudo nmap -sV -O -F 192.168.100.230
 ```
+<img width="471" height="34" alt="image" src="https://github.com/user-attachments/assets/c69fe5b2-fc71-4490-a6f4-48dbbd00a291" />
 
 Le scan révèle que le port SSH standard (`22/tcp`) est ouvert et utilise le démon OpenSSH 9.6p1 sur une distribution Ubuntu Linux (noyau 4.x/5.x).
 
@@ -85,7 +88,12 @@ Afin d'obtenir un accès initial, une attaque par dictionnaire a été lancée c
 ae6@thinkpad:~$ hydra -l ut -P test_passwords.txt ssh://192.168.100.230 -t 4
 ```
 
-![Scan de Reconnaissance Nmap et Force Brute Hydra](./images/image2.png)
+
+<img width="514" height="26" alt="image" src="https://github.com/user-attachments/assets/cae9384f-360f-4183-b9ae-0281f02766d3" />
+<img width="696" height="385" alt="image" src="https://github.com/user-attachments/assets/db6f4faf-b147-453f-b0d4-0a31e4c40f8c" />
+
+
+
 *Figure 2 : Exécution de l'outil de scan réseau Nmap et de l'attaque par dictionnaire Hydra depuis la machine attaquante.*
 
 ### 4.3 Analyse de la Détection Passive dans Wazuh
@@ -94,13 +102,15 @@ ae6@thinkpad:~$ hydra -l ut -P test_passwords.txt ssh://192.168.100.230 -t 4
 * **Alerte critique détectée :** Règle `5763` - *sshd: brute force trying to get access to the system. Authentication failed.* (Niveau de sévérité : **10**)
 * **Alertes secondaires :** Règle `2502` - *syslog: User missed the password more than one time* (Niveau de sévérité : **10**)
 
-![Remontée des Alertes SSH Brute Force dans Wazuh Dashboard](./images/image3.png)
+<img width="740" height="633" alt="image" src="https://github.com/user-attachments/assets/f7e7c942-4218-49eb-bccd-466e043af393" />
+
 *Figure 3 : Vue globale des alertes de force brute SSH consolidées sur le tableau de bord de Threat Hunting de Wazuh.*
 
 #### Détails XML/JSON d'un Événement de Détection SSH :
 La capture d'écran ci-dessous illustre la structure riche des métadonnées extraites par le décodeur `sshd` de Wazuh, identifiant formellement l'adresse IP source de l'attaquant (`192.168.100.1`) et le compte ciblé (`ut`).
 
-![Détails du Document d'Alerte SSH](./images/image4.png)
+<img width="614" height="588" alt="image" src="https://github.com/user-attachments/assets/2dcd7cdb-dc5e-4afc-a72c-11c3f0d716b1" />
+
 *Figure 4 : Fenêtre de détails d'événement (Document Details) affichant le log brut PAM et les variables décodées dans le SIEM.*
 
 > [!WARNING]
@@ -157,7 +167,9 @@ Après redémarrage du service Wazuh Manager, la validation du chargement mémoi
 [wazuh-user@wazuh-server ~]$ sudo /var/ossec/bin/agent_control -b 192.168.100.1 -f firewall-drop300 -u 001
 ```
 
-![Commande agent_control en mémoire](./images/image5.png)
+<img width="671" height="32" alt="image" src="https://github.com/user-attachments/assets/3c55aa5c-41f2-468a-95b1-502b765eab1f" />
+<img width="717" height="79" alt="image" src="https://github.com/user-attachments/assets/b3f2a8de-cd6f-40f3-8563-423562d4ba2c" />
+
 *Figure 5 : Console d'administration du manager validant le déclenchement forcé du blocage de l'IP attaquante sur l'agent ID 001.*
 
 ### 5.4 Test d'Efficacité du Blocage SOAR
@@ -168,7 +180,8 @@ ae6@thinkpad:~$ ssh ut@192.168.100.230
 ssh: connect to host 192.168.100.230 port 22: Connection timed out
 ```
 
-![Échec de connexion suite au blocage IP](./images/image6.png)
+<img width="541" height="44" alt="image" src="https://github.com/user-attachments/assets/1c9882ea-aeb6-4ed6-8a59-84b8cb05b80c" />
+
 *Figure 6 : Terminal de l'attaquant montrant le rejet silencieux des paquets TCP (Drop) provoquant un dépassement de délai SSH.*
 
 ---
@@ -191,7 +204,8 @@ Une fois connecté, l'utilisateur a tenté d'accéder au fichier contenant les e
 stagiaire@ubuntu-target:~$ sudo cat /etc/shadow
 ```
 
-![Simulation d'abus de privilèges sudo](./images/image7.png)
+<img width="549" height="167" alt="image" src="https://github.com/user-attachments/assets/b1ed31a1-f79f-4146-87e6-2534ce24c1cf" />
+
 *Figure 7 : Terminal de l'agent illustrant la création du profil restreint et la levée d'erreurs d'authentification lors de l'accès à /etc/shadow.*
 
 ### 6.2 Corrélation et Analyse SOC dans le SIEM
@@ -201,7 +215,8 @@ Sur le tableau de bord *Threat Hunting*, l'analyste SOC observe le pic d'événe
 * **Alerte critique :** Règle `5405` - *Unauthorized user attempted to use sudo.* (Niveau de sévérité : **5**)
 * **Alerte PAM :** Règle `5503` - *PAM: User login failed.* (Niveau de sévérité : **5**)
 
-![Alertes Privilege Escalation sur le Dashboard](./images/image8.png)
+<img width="719" height="538" alt="image" src="https://github.com/user-attachments/assets/bed535c3-5e4c-4e63-a1a2-aad19da9e7b0" />
+
 *Figure 8 : Graphique temporel et logs détaillés affichant la détection en temps réel des tentatives d'élévation de privilèges locaux.*
 
 ---
