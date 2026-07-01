@@ -89,7 +89,7 @@ ae6@thinkpad:~$ hydra -l ut -P test_passwords.txt ssh://192.168.100.230 -t 4
 ```
 
 
-<img width="514" height="26" alt="image" src="https://github.com/user-attachments/assets/cae9384f-360f-4183-b9ae-0281f02766d3" />
+
 <img width="696" height="385" alt="image" src="https://github.com/user-attachments/assets/db6f4faf-b147-453f-b0d4-0a31e4c40f8c" />
 
 
@@ -167,7 +167,7 @@ Après redémarrage du service Wazuh Manager, la validation du chargement mémoi
 [wazuh-user@wazuh-server ~]$ sudo /var/ossec/bin/agent_control -b 192.168.100.1 -f firewall-drop300 -u 001
 ```
 
-<img width="671" height="32" alt="image" src="https://github.com/user-attachments/assets/3c55aa5c-41f2-468a-95b1-502b765eab1f" />
+
 <img width="717" height="79" alt="image" src="https://github.com/user-attachments/assets/b3f2a8de-cd6f-40f3-8563-423562d4ba2c" />
 
 *Figure 5 : Console d'administration du manager validant le déclenchement forcé du blocage de l'IP attaquante sur l'agent ID 001.*
