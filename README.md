@@ -77,7 +77,7 @@ Depuis la machine hôte attaquante (`192.168.100.1`), un scan de ports agressif 
 ```bash
 ae6@thinkpad:~$ sudo nmap -sV -O -F 192.168.100.230
 ```
-<img width="471" height="34" alt="image" src="https://github.com/user-attachments/assets/c69fe5b2-fc71-4490-a6f4-48dbbd00a291" />
+
 
 Le scan révèle que le port SSH standard (`22/tcp`) est ouvert et utilise le démon OpenSSH 9.6p1 sur une distribution Ubuntu Linux (noyau 4.x/5.x).
 
