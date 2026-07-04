@@ -185,6 +185,118 @@ ssh: connect to host 192.168.100.230 port 22: Connection timed out
 *Figure 6 : Terminal de l'attaquant montrant le rejet silencieux des paquets TCP (Drop) provoquant un dépassement de délai SSH.*
 
 ---
+ ### 5.5 Notification en Temps Réel et Escalade des Alertes via Bot Telegram
+    Pour optimiser les opérations du SOC (Security Operations Center) et réduire le temps moyen de détection/réponse (MTTD/MTTR), nous avons intégré un mécanisme de notification
+  instantanée via l'API **Telegram Bot**. Cette escalade permet de notifier en direct les analystes de sécurité sur leur mobile des incidents critiques (sévérité >= 10).
+    
+    ```mermaid
+    graph TD
+        A[Attaquant / Source de Menace] -- Force Brute / Sudo Abuse --> B[Target: Ubuntu Server]
+        B -- Télémétrie syslog/auth.log --> C[Serveur: Wazuh Manager]
+        C -- Analyse de Sévérité >= 10 --> D[Integrator Daemon wazuh-integratord]
+        D -- Exécute script custom-telegram --> E[Telegram Bot API HTTPS POST]
+        E -- Message Push --> F[Canal Telegram de l'équipe SOC]
+    
+  #### 5.5.1 Création et Configuration du Bot Telegram
+
+  La mise en place de la passerelle de notification nécessite deux étapes préalables sur Telegram :
+
+  1. Génération du Bot : Via l'outil centralisé  @BotFather , nous créons un nouveau bot nommé  Wazuh_Alert_Bot  qui nous attribue un jeton d'authentification unique (Token API)
+  indispensable pour interagir avec les serveurs Telegram.
+  2. Canal de Réception : Création d'un canal privé réunissant l'équipe de réponse aux incidents. Grâce à l'API de Telegram, nous récupérons l'identifiant unique ( chat_id ) du canal pour
+  pouvoir y poster les messages automatiquement.
+
+  #### 5.5.2 Développement du Script d'Intégration Personnalisé ( custom-telegram )
+
+  Un script en Python a été développé et stocké dans  /var/ossec/integrations/custom-telegram  sur le serveur Wazuh Manager. Ce script intercepte le fichier JSON temporaire de l'alerte
+  produit par Wazuh, extrait les métadonnées de sécurité et envoie un payload formaté en Markdown à l'API Telegram :
+
+    #!/usr/bin/env python3
+    import sys
+    import json
+    import requests
+    
+    # Récupération des arguments transmis par le démon wazuh-integratord
+    alert_file_path = sys.argv[1] # Fichier JSON contenant l'alerte brute
+    hook_url = sys.argv[2]        # URL de l'API webhook contenant le Token API
+    alert_json = json.loads(open(alert_file_path).read())
+    
+    # Extraction des variables essentielles pour l'analyste SOC
+    rule_id = alert_json['rule']['id']
+    rule_desc = alert_json['rule']['description']
+    level = alert_json['rule']['level']
+    agent_name = alert_json['agent']['name']
+    src_ip = alert_json.get('data', {}).get('srcip', 'IP Inconnue')
+    
+    # Assignation d'un emoji de sévérité pour une lecture visuelle immédiate
+    if level >= 12:
+        severity_emoji = "🔴 (Critique)"
+    elif level >= 8:
+        severity_emoji = "🟠 (Élevée)"
+    else:
+        severity_emoji = "🟡 (Moyenne)"
+    
+    # Construction du message en format Markdown
+    message = (
+        f"🚨 *ALERTE SOC WAZUH* 🚨\\n\\n"
+        f"🖥️ *Machine Cible :* `{agent_name}`\\n"
+        f"⚠️ *Niveau de Menace :* `{level}` {severity_emoji}\\n"
+        f"🔍 *Type de Détection :* {rule_desc}\\n"
+        f"🔌 *IP Source d'Attaque :* `{src_ip}`\\n"
+        f"🆔 *Règle Wazuh ID :* `{rule_id}`"
+    )
+    
+    # Payload JSON envoyé à l'API Telegram sendMessage
+    payload = {
+        "chat_id": "-1002234567890", # ID unique du canal SOC privé
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    
+    # Envoi de la requête POST
+    try:
+        response = requests.post(hook_url, json=payload, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        sys.exit(f"Erreur d'envoi Telegram: {e}")
+    
+  Pour que ce script s'exécute correctement au sein du gestionnaire Wazuh, les droits d'accès système requis ont été appliqués sur le manager :
+
+    # Attribution des droits d'exécution et sécurisation de la configuration
+    sudo chmod 750 /var/ossec/integrations/custom-telegram
+    sudo chown root:wazuh /var/ossec/integrations/custom-telegram
+    
+  #### 5.5.3 Déclaration de la Passerelle d'Intégration
+
+  Sur le Wazuh Manager, nous déclarons l'intégration au sein de la configuration générale  /var/ossec/etc/ossec.conf . Cela lie les alertes de niveau  >= 10  à notre script d'intégration
+  et injecte automatiquement l'URL de l'API de notre bot Telegram :
+
+    <!-- Activation du module d'intégration Telegram dans ossec.conf -->
+    <integration>
+      <name>custom-telegram</name>
+      <hook_url>https://api.telegram.org/bot718273618:AAH_custom_token_here/sendMessage</hook_url>
+      <level>10</level> <!-- Déclenchement sur alertes de niveau 10 et plus -->
+      <alert_format>json</alert_format>
+    </integration>
+    
+  #### 5.5.4 Analyse et Validation des Alertes Reçues sur Mobile
+
+  L'intégration a été testée et validée lors des différentes simulations d'intrusion. L'image suivante montre les captures d'écran des alertes réelles reçues sur l'application mobile
+  Telegram des analystes SOC :
+
+  <img width="452" height="919" alt="image" src="https://github.com/user-attachments/assets/a22bd931-56dd-4d89-8556-48853774f548" />
+
+  Figure 10 : Canal Telegram "Wazuh_Alert_Bot" affichant en temps réel les notifications d'attaques sur le serveur cible.
+
+  L'analyse de ces alertes mobiles met en évidence :
+
+  1. La Détection d'Abus Interne (Sudo Abuse) : Les deux premières alertes reçues à  20:37  indiquent des tentatives répétées d'exécution non autorisées de la commande  sudo  sur l'hôte 
+  ubuntu-target .
+  2. La Détection de Force Brute (PAM & SSH) : Les alertes suivantes reçues à  20:41  signalent des connexions ratées multiples en un temps restreint (PAM), suivies immédiatement par la
+  signature de force brute SSH ( sshd: brute force trying to get access ).
+  3. Réactivité de la Chaîne SOAR : L'analyse des horodatages confirme que la notification mobile est reçue en moins de 1 seconde après la détection de l'événement sur l'agent,
+  garantissant une réactivité optimale du centre opérationnel de sécurité.
+
 
 ## 6. Phase 3 : Surveillance Interne, Privilèges et Zero Trust (Menace Interne)
 
